@@ -11,7 +11,10 @@ export const Route=createFileRoute('/dashboard/$role')({head:({params})=>({meta:
 const dateOf=(r:Result)=>{const v=r.created_at??r.date??r.submitted_at??r.timestamp; if(!v)return '';const d=new Date(String(v));return Number.isNaN(d.getTime())?'':d.toLocaleDateString()};
 const csvCell=(v:unknown)=>`"${valueText(v).replaceAll('"','""')}"`;
 function Dashboard(){const {role}=Route.useParams();const valid=role==='admin'||role==='teacher'||role==='psychologist';const r=valid?role:'admin';const {t,lang}=useLanguage();const [results,setResults]=useState<Result[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[query,setQuery]=useState(''),[level,setLevel]=useState('all'),[selected,setSelected]=useState<Result|null>(null);const load=async()=>{setLoading(true);setError('');try{setResults(await getResults(r))}catch{setError(t.apiError)}finally{setLoading(false)}};useEffect(()=>{void load()},[r]);
- const scoped=useMemo(()=>results.filter(x=>isSchool50(x.school)&&(r==='admin'||!localStorage.getItem(`${r}Class`)||x.class_name===localStorage.getItem(`${r}Class`))),[results,r]);
+ const scoped = useMemo(
+  () => results.filter(x => isSchool50(x.school)),
+  [results]
+);
  const filtered=useMemo(()=>scoped.filter(x=>(level==='all'||riskBucket(x.risk_level)===level)&&(!query||[x.student_id,x.school,x.class_name].some(v=>String(v??'').toLowerCase().includes(query.toLowerCase())))),[scoped,level,query]);
  const counts={high:scoped.filter(x=>riskBucket(x.risk_level)==='high').length,medium:scoped.filter(x=>riskBucket(x.risk_level)==='medium').length,low:scoped.filter(x=>riskBucket(x.risk_level)==='low').length};const colors=['var(--chart-high)','var(--chart-medium)','var(--chart-low)'];const chart=[{name:t.high,value:counts.high},{name:t.medium,value:counts.medium},{name:t.low,value:counts.low}].filter(x=>x.value>0);
  const exportCsv=()=>{const rows=[['student_id','school','class_name','final_result','risk_level','risk_score','date'],...filtered.map(x=>[x.student_id,x.school,x.class_name,x.final_result,x.risk_level,x.risk_score,dateOf(x)])];const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`safeschool-${r}-results.csv`;a.click();URL.revokeObjectURL(url)};
